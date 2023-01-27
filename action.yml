@@ -21,10 +21,6 @@ inputs:
     description: 'The repository where the images will be published.'
     required: true
     default: ''
-outputs:
-  random-number:
-    description: "Random number"
-    value: ${{ steps.random-number-generator.outputs.random-number }}
 branding:
   icon: 'package'
   color: 'white'
