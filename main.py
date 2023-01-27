@@ -60,7 +60,7 @@ def generate(repo: str, protos: [str], output: str):
     Path(dest).mkdir(exist_ok=True)
 
     # Copy Dockerfile
-    shutil.copyfile(path.join(repo, "action", "Dockerfile"), path.join(output, "Dockerfile"))
+    shutil.copyfile(path.join(repo, "Dockerfile"), path.join(output, "Dockerfile"))
 
     for file in template:
         shutil.copyfile(file, path.join(dest, path.basename(file)))
@@ -159,7 +159,7 @@ def main():
         Path(output).mkdir(exist_ok=True)
 
         _id = folder[len(path.dirname(folder)) + 1:]
-        generate(args.repo_folder, protos, path.join(output, _id))
+        generate(path.join(args.repo_folder, "action"), protos, path.join(output, _id))
         ids.append(_id)
 
     build_docker_images(output, ids, args.docker_repository)
