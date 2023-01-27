@@ -5,8 +5,8 @@ inputs:
     description: 'to avoid rate limiting, pass the default token with the repo-token'
     required: true
     default: ''
-  folder:
-    description: 'Folder with proto file(s) to compile.'
+  folders:
+    description: 'Folders with proto file(s) to compile. Must be separated with spaces and relative to the repository.'
     required: true
     default: ''
   docker-username:
@@ -25,6 +25,9 @@ outputs:
   random-number:
     description: "Random number"
     value: ${{ steps.random-number-generator.outputs.random-number }}
+branding:
+  icon: 'package'
+  color: 'white'
 runs:
   using: "composite"
   steps:
