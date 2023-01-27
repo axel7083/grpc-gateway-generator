@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 2
       - name: grpc-gateway-action
-        uses: axel7083/grpc-gateway-generator@v1.0
+        uses: axel7083/grpc-gateway-generator@v1.2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           folders: ./protos/service.a /protos/service.b
