@@ -15,14 +15,17 @@ import docker
 
 
 def diff_folder(repo, folder: str) -> bool:
+    print(f"Getting repo {repo}")
     repo = git.Repo(repo)
 
     if folder.startswith("/"):
         folder = folder[1:]
 
-    print("Difference between " + str(repo.commit("HEAD")) + " and " + str(repo.commit("HEAD~1")))
+    head = str(repo.commit("HEAD"))
+    head_1 = str(repo.commit("HEAD~1"))
+    print(f"Difference between {head} and {head_1}")
 
-    return len(repo.git.diff("HEAD", "HEAD~1", folder)) > 0
+    return len(repo.git.diff(head, head_1, folder)) > 0
 
 
 def get_protos(directory: str) -> [str]:
