@@ -57,7 +57,7 @@ class GrpcGatewayBuilder:
     def __init__(self,
                  repository_folder: str,
                  docker_repository: str,
-                 prefix_tag: str = "grpc-gateway-",
+                 prefix_tag: str = "grpc-gateway",
                  always_rebuild: bool = False
                  ) -> None:
         self.logger = create_logger(GrpcGatewayBuilder.__name__)
@@ -189,7 +189,7 @@ def main():
     parser.add_argument('--proto-folder', required=True,  nargs='+')
     parser.add_argument('--repo-folder', type=str, required=True)
     parser.add_argument('--docker-repository', type=str, required=True)
-    parser.add_argument('--prefix-tag', type=str, required=False, default="grpc-gateway-")
+    parser.add_argument('--prefix-tag', type=str, required=False, default="grpc-gateway")
     parser.add_argument('--always-rebuild', action='store_true')
 
     args = parser.parse_args()
