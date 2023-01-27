@@ -1,0 +1,60 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"google.golang.org/protobuf/proto"
+	"log"
+	"net/http"
+	"os"
+
+	gw "template/gen/go"
+	"github.com/golang/glog"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+)
+
+func run(grpcEndpoint string, gatewayPort string) error {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Register gRPC server endpoint
+	// Note: Make sure the gRPC server is running properly and accessible
+	mux := runtime.NewServeMux()
+
+	opts := []grpc.DialOption{
+    		grpc.WithTransportCredentials(insecure.NewCredentials()),
+    		grpc.WithDefaultCallOptions(
+    			grpc.MaxCallRecvMsgSize(1024*1024*16),
+    			grpc.MaxCallSendMsgSize(1024*1024*16),
+    		),
+    	}
+
+    ${services}
+
+	if err != nil {
+		return err
+	}
+
+	// Start HTTP server (and proxy calls to gRPC server endpoint)
+	return http.ListenAndServe(":"+gatewayPort, mux)
+}
+
+func main() {
+	grpcEndpoint := os.Getenv("GRPC_ENDPOINT")
+	gatewayPort := os.Getenv("GATEWAY_PORT")
+
+	if len(grpcEndpoint) == 0 || len(gatewayPort) == 0 {
+		glog.Fatalf("Initialization failed: GRPC_ENDPOINT and GATEWAY_PORT env must no be empty.")
+		return
+	}
+
+	flag.Parse()
+	defer glog.Flush()
+
+	if err := run(grpcEndpoint, gatewayPort); err != nil {
+		glog.Fatal(err)
+	}
+}
