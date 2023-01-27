@@ -13,7 +13,7 @@ jobs:
       - uses: ./
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          folder: /tests
+          folder: ./tests
           docker-username: ${{ secrets.DOCKERHUB_USERNAME }}
           docker-password: ${{ secrets.DOCKERHUB_TOKEN }}
           docker-repository: axel7083/dev
