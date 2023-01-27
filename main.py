@@ -118,24 +118,7 @@ def build_docker_images(output: str, ids: [str], repository: str) -> [str]:
         )
 
         client.images.push(repository=repository, tag=tag)
-
-
-def extract_self(repo_folder: str) -> Optional[str]:
-    repo_path = Path(repo_folder)
-    current = Path(path.realpath(__file__)).parent
-    print(f"Comparing folder {repo_folder} with {str(current)}")
-    subdirectory = []
-    while not repo_path.match(str(current)) or len(current.parts) == 1:
-        subdirectory.append(current.name)
-        current = current.parent
-
-    if len(current.parts) == 1 and not repo_path.match(str(current)):
-        return None
-    subdirectory.reverse()
-    if len(subdirectory) == 0:
-        return None
-
-    return path.join(*subdirectory)
+        print(f"Image {repository}:{tag} pushed.")
 
 
 def main():
@@ -152,14 +135,6 @@ def main():
     if not Path(args.repo_folder).exists():
         raise Exception("The repository folder does not exist.")
 
-    current_sub_folder = extract_self(args.repo_folder)
-    current_changed = False
-    if current_sub_folder is not None:
-        current_changed = diff_folder(args.repo_folder, current_sub_folder)
-        if current_changed:
-            print("The current folder has changed we will rebuild all dockers.")
-        else:
-            print("The build script has not changed.")
 
     ids = []
     for folder in args.proto_folder:
@@ -170,7 +145,7 @@ def main():
 
         if not args.rebuild_all:
             # If not difference with the previous commit we pass
-            if not diff_folder(args.repo_folder, folder) and not current_changed:
+            if not diff_folder(args.repo_folder, folder):
                 print(folder + " no diff.")
                 continue
             else:
