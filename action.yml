@@ -52,7 +52,7 @@ runs:
     - name: Setup Python
       uses: actions/setup-python@v4.3.1
     - name: Install Python Dependencies
-      run: pip install -r ${GITHUB_WORKSPACE}/tools/grpc-gateway-generator/requirements.txt
+      run: pip install -r ${GITHUB_WORKSPACE}/requirements.txt
       shell: bash
     - name: Building&Pushing docker images
       run: python ${GITHUB_WORKSPACE}/main.py --docker-repository ${{ inputs.docker-repository }} --proto-folder ${{ inputs.folder }} --repo-folder ${GITHUB_WORKSPACE}
