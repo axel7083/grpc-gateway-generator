@@ -143,6 +143,7 @@ def main():
     parser.add_argument('--proto-folder', required=True,  nargs='+')
     parser.add_argument('--repo-folder', type=str, required=True)
     parser.add_argument('--docker-repository', type=str, required=True)
+    parser.add_argument('--rebuild-all', action='store_true')
 
     args = parser.parse_args()
 
@@ -167,12 +168,13 @@ def main():
         if not Path(absolute_path).exists():
             raise Exception("The folder " + folder + " does not exist in the repository given.")
 
-        # If not difference with the previous commit we pass
-        if not diff_folder(args.repo_folder, folder) and not current_changed:
-            print(folder + " no diff.")
-            continue
-        else:
-            print(f"Folder {folder} will be rebuild.")
+        if not args.rebuild_all:
+            # If not difference with the previous commit we pass
+            if not diff_folder(args.repo_folder, folder) and not current_changed:
+                print(folder + " no diff.")
+                continue
+            else:
+                print(f"Folder {folder} will be rebuild.")
 
         protos = get_protos(absolute_path)
         if len(protos) == 0:
