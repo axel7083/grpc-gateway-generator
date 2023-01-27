@@ -60,7 +60,7 @@ def generate(repo: str, protos: [str], output: str):
     Path(dest).mkdir(exist_ok=True)
 
     # Copy Dockerfile
-    shutil.copyfile(path.join(repo, "Dockerfile"), path.join(output, "Dockerfile"))
+    shutil.copyfile(path.join(repo, "action", "Dockerfile"), path.join(output, "Dockerfile"))
 
     for file in template:
         shutil.copyfile(file, path.join(dest, path.basename(file)))
