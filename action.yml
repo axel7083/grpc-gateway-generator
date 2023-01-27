@@ -1,0 +1,50 @@
+name: 'grpc-gateway-action'
+description: 'Build and Public grpc-gateway'
+inputs:
+  repo-token:
+    description: 'to avoid rate limiting, pass the default token with the repo-token'
+    required: true
+    default: ''
+  folder:
+    description: 'Folder with proto file(s) to compile.'
+    required: true
+    default: ''
+  docker-username:
+    description: 'Docker username '
+    required: true
+    default: ''
+  docker-password:
+    description: 'Docker password'
+    required: true
+    default: ''
+  docker-repository:
+    description: 'The repository where the images will be published.'
+    required: true
+    default: ''
+outputs:
+  random-number:
+    description: "Random number"
+    value: ${{ steps.random-number-generator.outputs.random-number }}
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/checkout@v3
+    - name: Login to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ inputs.docker-username }}
+        password: ${{ inputs.docker-password }}
+    - name: Install Protoc
+      uses: arduino/setup-protoc@v1
+      with:
+        version: '3.x'
+        include-pre-releases: true
+        repo-token: ${{ inputs.repo-token }}
+    - run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28
+    - run: go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2
+    - run: go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
+    - uses: bufbuild/buf-setup-action@v1.10.0
+    - run: export PATH="$PATH:$(go env GOPATH)/bin"
+    - name: Setup Python
+      uses: actions/setup-python@v4.3.1
+    - run: python ${GITHUB_WORKSPACE}/main.py --docker-repository ${{ inputs.docker-repository }} --proto-folder ${{ inputs.folder }} --repo-folder ${GITHUB_WORKSPACE}
