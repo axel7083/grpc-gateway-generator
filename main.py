@@ -94,7 +94,7 @@ class GrpcGatewayBuilder:
 
         output = path.join(self.temp_directory.name, _id)
         dest = path.join(output, "template")
-        Path(dest).mkdir(exist_ok=True)
+        Path(dest).mkdir(parents=True, exist_ok=True)
 
         shutil.copyfile(path.join(self.execution_dir, "Dockerfile"), path.join(output, "Dockerfile"))
 
