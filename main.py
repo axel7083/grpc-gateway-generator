@@ -147,6 +147,7 @@ class GrpcGatewayBuilder:
 
         self.docker_client.images.push(repository=self.docker_repository, tag=timestamped_tag)
         self.docker_client.api.tag(image=full_image, repository=self.docker_repository, tag=latest_tag)
+        self.docker_client.images.push(repository=self.docker_repository, tag=latest_tag)
 
     def start(self, folders: [str]):
         self.logger.info(f"Starting analysing {len(folders)} folder(s).")
