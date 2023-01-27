@@ -8,6 +8,8 @@ jobs:
     name: grpc-gateway-test
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
       - uses: ./
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
