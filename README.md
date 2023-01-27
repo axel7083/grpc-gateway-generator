@@ -1,6 +1,6 @@
 ## grpc-gateway-generator
 
-Build and Push automatically grpc-gateway.
+Build and Push automatically grpc-gateway. This has been created to make easier the deployment of gprc-gateways, select one or many folders containing proto files, and this actions will compare the difference between the last commit, if they are changes, a docker image will be build and pushed to the given docker repository.
 
 ## Usage
 
@@ -24,7 +24,7 @@ jobs:
         uses: axel7083/grpc-gateway-generator@v1.2
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          folders: ./protos/service.a /protos/service.b
+          folders: ./protos/service-a /protos/service-b
           docker-username: ${{ secrets.DOCKERHUB_USERNAME }}
           docker-password: ${{ secrets.DOCKERHUB_TOKEN }}
           docker-repository: axel7083/dev
@@ -33,5 +33,5 @@ jobs:
 ## Images
 
 This action will publish one image per folder provided. The images will be named as followed `{docker-repository}:grpc-gateway-{folder}-{timestamp}`. Using the previous config we can get the following images
-- `axel7083/dev:grpc-gateway-service-a-1674593599`
-- `axel7083/dev:grpc-gateway-service-b-1674593599`
+- `axel7083/dev:grpc-gateway-service-a-1674593599` and `axel7083/dev:grpc-gateway-service-a-latest`
+- `axel7083/dev:grpc-gateway-service-b-1674593599` and `axel7083/dev:grpc-gateway-service-b-latest`
