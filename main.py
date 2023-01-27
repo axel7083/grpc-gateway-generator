@@ -1,31 +1,31 @@
-from typing import Optional
-
 import time
 import git
 import tempfile
 import argparse
 from pathlib import Path
-from os import path, remove, getcwd
+from os import path, remove
 from glob import glob
 import shutil
 import subprocess
 import re
 from string import Template
 import docker
+from docker import DockerClient
+from docker.errors import APIError
 
 
-def diff_folder(repo, folder: str) -> bool:
-    print(f"Getting repo {repo}")
-    repo = git.Repo(repo)
+def create_logger(name: str):
+    logger = logging.getLogger(name)
 
-    if folder.startswith("/"):
-        folder = folder[1:]
+    logger.setLevel(logging.INFO)
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
 
-    head = str(repo.commit("HEAD"))
-    head_1 = str(repo.commit("HEAD~1"))
-    print(f"Difference between {head} and {head_1}")
+    formatter = logging.Formatter('[%(threadName)s] %(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    console_handler.setFormatter(formatter)
 
-    return len(repo.git.diff(head, head_1, folder)) > 0
+    logger.addHandler(console_handler)
+    return logger
 
 
 def get_protos(directory: str) -> [str]:
@@ -46,79 +46,139 @@ def create_services_code(services: [str]) -> str:
     return output
 
 
-def generate(repo: str, protos: [str], output: str):
-    print(f"Generating files in {output} for {len(protos)} files.")
-
-    # Fetch all the files in the template dir
-    template = glob(path.join(repo, "template", "*"))
-
-    dest = path.join(output, "template")
-
-    # Ensure the directory exist
-    Path(output).mkdir(exist_ok=True)
-    #
-    Path(dest).mkdir(exist_ok=True)
-
-    # Copy Dockerfile
-    shutil.copyfile(path.join(repo, "Dockerfile"), path.join(output, "Dockerfile"))
-
-    for file in template:
-        shutil.copyfile(file, path.join(dest, path.basename(file)))
-
-    for proto in protos:
-        shutil.copyfile(proto, path.join(dest, path.basename(proto)))
-
-    p = subprocess.run(["buf", "generate"], cwd=dest, capture_output=True)
-
-    if p.returncode != 0:
-        print('exit status:', p.returncode)
-        print('stdout:', p.stdout.decode())
-        print('stderr:', p.stderr.decode())
-        raise Exception("Could not generate grpc-gateway.")
-
-    protos_definitions = glob(path.join(dest, "gen", "go", "*.pb.gw.go"))
-
-    services = []
-    for definition in protos_definitions:
-        with open(definition, "r") as def_file:
-            content = def_file.read()
-            _services = re.findall(r'Register\w+HandlerFromEndpoint', content)
-            if len(_services) > 0:
-                services.extend(_services)
-
-    services = list(set(services))
-
-    template_path = path.join(dest, "main.go.template")
-    with open(template_path, "r", encoding="utf-8") as main_go_template:
-        content = Template(main_go_template.read())
-        output = content.substitute(services=create_services_code(services))
-
-        with open(path.join(dest, "main.go"), "w", encoding="utf-8") as main_go:
-            main_go.write(output)
-
-    remove(template_path)
+def where_am_i() -> Path:
+    return Path(__file__).resolve().parent
 
 
-def build_docker_images(output: str, ids: [str], repository: str) -> [str]:
-    # init docker
-    client = docker.from_env()
+class GrpcGatewayBuilder:
 
-    for _id in ids:
-        build_dir = path.join(output, _id)
-        if not Path(build_dir).is_dir():
-            print(f"The path {build_dir} is supposed to be a dir. Therefore skiping.")
-            continue
+    def __init__(self,
+                 repository_folder: str,
+                 docker_repository: str,
+                 prefix_tag: str = "grpc-gateway-",
+                 always_rebuild: bool = False
+                 ) -> None:
+        self.logger = create_logger(GrpcGatewayBuilder.__name__)
+        self.docker_client: DockerClient = docker.from_env()
+        self.repository_folder = repository_folder
+        self.docker_repository = docker_repository
+        self.prefix_tag = prefix_tag
+        self.git_repo = git.Repo(repository_folder)
+        self.always_rebuild = always_rebuild
+        # Create a temporary folder
+        self.temp_directory = tempfile.TemporaryDirectory()
 
-        tag = "grpc-gateway-" + (_id.replace(".", "-")) + "-" + str(int(time.time()))
-        image, _ = client.images.build(
+        self.execution_dir = where_am_i()
+
+    def docker_image_exist(self, image: str) -> bool:
+        try:
+            self.docker_client.api.inspect_distribution(image)
+            return True
+        except APIError:
+            return False
+
+    def folder_has_diff(self, folder):
+        if folder.startswith("/"):
+            folder = folder[1:]
+
+        head = str(self.git_repo.commit("HEAD"))
+        head_1 = str(self.git_repo.commit("HEAD~1"))
+        return len(self.git_repo.git.diff(head, head_1, folder)) > 0
+
+    def generate_go(self, _id: str, protos: [str]):
+        self.logger.info(f"Generating go for {_id}.")
+        # Fetch all the files in the template dir
+        template = glob(path.join(self.execution_dir, "template", "*"))
+
+        output = path.join(self.temp_directory.name, _id)
+        dest = path.join(output, "template")
+        Path(dest).mkdir(exist_ok=True)
+
+        shutil.copyfile(path.join(self.execution_dir, "Dockerfile"), path.join(output, "Dockerfile"))
+
+        for file in template:
+            shutil.copyfile(file, path.join(dest, path.basename(file)))
+
+        for proto in protos:
+            shutil.copyfile(proto, path.join(dest, path.basename(proto)))
+
+        p = subprocess.run(["buf", "generate"], cwd=dest, capture_output=True)
+
+        if p.returncode != 0:
+            print('exit status:', p.returncode)
+            print('stdout:', p.stdout.decode())
+            print('stderr:', p.stderr.decode())
+            raise Exception("Could not generate grpc-gateway.")
+
+        protos_definitions = glob(path.join(dest, "gen", "go", "*.pb.gw.go"))
+
+        services = []
+        for definition in protos_definitions:
+            with open(definition, "r") as def_file:
+                content = def_file.read()
+                _services = re.findall(r'Register\w+HandlerFromEndpoint', content)
+                if len(_services) > 0:
+                    services.extend(_services)
+
+        services = list(set(services))
+
+        template_path = path.join(dest, "main.go.template")
+        with open(template_path, "r", encoding="utf-8") as main_go_template:
+            content = Template(main_go_template.read())
+            output = content.substitute(services=create_services_code(services))
+
+            with open(path.join(dest, "main.go"), "w", encoding="utf-8") as main_go:
+                main_go.write(output)
+
+        remove(template_path)
+
+    def build_docker_image(self, build_dir: str, partial_tag: str, latest_tag: str):
+        self.logger.info(f"Building docker in directory {build_dir}.")
+        timestamped_tag = f"{partial_tag}-{str(int(time.time()))}"
+        full_image = f"{self.docker_repository}:{timestamped_tag}"
+        image, _ = self.docker_client.images.build(
             path=build_dir,
             dockerfile="Dockerfile",
             buildargs={"project": "template"},
-            tag=repository + ":" + tag
+            tag=full_image
         )
 
-        client.images.push(repository=repository, tag=tag)
-        print(f"Image {repository}:{tag} pushed.")
+        self.docker_client.images.push(repository=self.docker_repository, tag=timestamped_tag)
+        self.docker_client.api.tag(image=full_image, repository=self.docker_repository, tag=latest_tag)
+
+    def start(self, folders: [str]):
+        self.logger.info(f"Starting analysing {len(folders)} folder(s).")
+        for folder in folders:
+            # Get the absolute path and ensure it exists
+            absolute_path = path.join(self.repository_folder, folder)
+            if not Path(absolute_path).exists():
+                raise Exception("The folder " + folder + " does not exist in the repository given.")
+
+            # Get all the protos files inside the given folder
+            protos = get_protos(absolute_path)
+            if len(protos) == 0:
+                raise Exception("The folder given do not have any .proto files.")
+
+            # The id used will be the directory name where the proto files are located
+            _id = folder[len(path.dirname(folder)) + 1:]
+
+            partial_tag = f"{self.prefix_tag}-{_id}"
+            latest_tag = f"{partial_tag}-latest"
+
+            # If we never built the images OR the folder has changed since the last commit.
+            if self.always_rebuild \
+                    or not self.docker_image_exist(f"{self.docker_repository}:{latest_tag}") \
+                    or self.folder_has_diff(folder):
+                self.logger.info(f"Folder {folder} will be build and push.")
+                self.generate_go(_id, protos)
+                self.build_docker_image(
+                    build_dir= path.join(self.temp_directory.name, _id),
+                    partial_tag=partial_tag,
+                    latest_tag=latest_tag
+                )
+
+    def cleanup(self):
+        self.temp_directory.cleanup()
 
 
 def main():
@@ -126,45 +186,21 @@ def main():
     parser.add_argument('--proto-folder', required=True,  nargs='+')
     parser.add_argument('--repo-folder', type=str, required=True)
     parser.add_argument('--docker-repository', type=str, required=True)
-    parser.add_argument('--rebuild-all', action='store_true')
+    parser.add_argument('--prefix-tag', type=str, required=False, default="grpc-gateway-")
+    parser.add_argument('--always-rebuild', action='store_true')
 
     args = parser.parse_args()
 
-    output = tempfile.TemporaryDirectory().name
+    builder = GrpcGatewayBuilder(
+        repository_folder=args.repo_folder,
+        docker_repository=args.docker_repository,
+        prefix_tag=args.prefix_tag,
+        always_rebuild=args.always_rebuild
+    )
 
-    if not Path(args.repo_folder).exists():
-        raise Exception("The repository folder does not exist.")
-
-
-    ids = []
-    for folder in args.proto_folder:
-
-        absolute_path = path.join(args.repo_folder, folder)
-        if not Path(absolute_path).exists():
-            raise Exception("The folder " + folder + " does not exist in the repository given.")
-
-        if not args.rebuild_all:
-            # If not difference with the previous commit we pass
-            if not diff_folder(args.repo_folder, folder):
-                print(folder + " no diff.")
-                continue
-            else:
-                print(f"Folder {folder} will be rebuild.")
-
-        protos = get_protos(absolute_path)
-        if len(protos) == 0:
-            raise Exception("The folder given do not have any .proto files.")
-
-        # Ensure the directory exist
-        Path(output).mkdir(exist_ok=True)
-
-        _id = folder[len(path.dirname(folder)) + 1:]
-        generate(path.join(args.repo_folder, "action"), protos, path.join(output, _id))
-        ids.append(_id)
-
-    build_docker_images(output, ids, args.docker_repository)
+    builder.start(args.proto_folder)
+    builder.cleanup()
 
 
 if __name__ == "__main__":
-
     main()

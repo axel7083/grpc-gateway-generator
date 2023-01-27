@@ -58,5 +58,5 @@ runs:
       run: pip install -r ${GITHUB_WORKSPACE}/action/requirements.txt
       shell: bash
     - name: Building&Pushing docker images
-      run: python ${GITHUB_WORKSPACE}/action/main.py --rebuild-all --docker-repository ${{ inputs.docker-repository }} --proto-folder ${{ inputs.folders }} --repo-folder ${GITHUB_WORKSPACE}
+      run: python ${GITHUB_WORKSPACE}/action/main.py --docker-repository ${{ inputs.docker-repository }} --proto-folder ${{ inputs.folders }} --repo-folder ${GITHUB_WORKSPACE}
       shell: bash
