@@ -46,12 +46,11 @@ def create_services_code(services: [str]) -> str:
     return output
 
 
-def generate(repo, protos: [str], output: str):
+def generate(repo: str, protos: [str], output: str):
     print(f"Generating files in {output} for {len(protos)} files.")
 
-    grpc_generator = path.join(repo, "tools", "grpc-gateway-generator")
     # Fetch all the files in the template dir
-    template = glob(path.join(grpc_generator, "template", "*"))
+    template = glob(path.join(repo, "template", "*"))
 
     dest = path.join(output, "template")
 
@@ -61,7 +60,7 @@ def generate(repo, protos: [str], output: str):
     Path(dest).mkdir(exist_ok=True)
 
     # Copy Dockerfile
-    shutil.copyfile(path.join(grpc_generator, "Dockerfile"), path.join(output, "Dockerfile"))
+    shutil.copyfile(path.join(repo, "Dockerfile"), path.join(output, "Dockerfile"))
 
     for file in template:
         shutil.copyfile(file, path.join(dest, path.basename(file)))
