@@ -27,6 +27,8 @@ branding:
 runs:
   using: "composite"
   steps:
+    - run: echo ${GITHUB_WORKSPACE}
+      shell: bash
     - uses: actions/checkout@v3
       with:
         path: '/grpc-gateway-generator'
